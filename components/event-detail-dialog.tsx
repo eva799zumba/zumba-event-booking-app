@@ -23,10 +23,10 @@ import {
   AlertCircle,
   Clock3,
 } from "lucide-react";
-import type { ZumbaEvent } from "@/lib/data";
+import type { Event } from "@/lib/db/schema";
 
 interface EventDetailDialogProps {
-  event: ZumbaEvent | null;
+  event: Event | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -40,17 +40,48 @@ export function EventDetailDialog({
 
   if (!event) return null;
 
-  const progressPercentage = (event.registered / event.capacity) * 100;
-  const remainingSpots = event.capacity - event.registered;
+  const registered = event.currentRegistrations ?? 0;
+  const waitlist = event.waitlistCount ?? 0;
+  const progressPercentage = (registered / event.capacity) * 100;
+  const remainingSpots = event.capacity - registered;
+
+  const getStatus = () => {
+    if (event.isClosed) return "closed";
+    if (registered >= event.capacity) return "full";
+    return "open";
+  };
+
+  const status = getStatus();
 
   const copyAccountNumber = () => {
-    navigator.clipboard.writeText(event.bankAccount);
+    navigator.clipboard.writeText(event.accountNumber);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const getCategoryLabel = (category: string) => {
+    const map: Record<string, string> = {
+      basic: '기초반',
+      senior: '시니어',
+      party: '파티',
+      toning: '근력강화',
+      kids: '키즈',
+      aqua: '아쿠아',
+    };
+    return map[category] || category;
+  };
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('ko-KR', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  };
+
   const getStatusInfo = () => {
-    switch (event.status) {
+    switch (status) {
       case "open":
         return {
           badge: (
@@ -70,7 +101,7 @@ export function EventDetailDialog({
             </Badge>
           ),
           icon: <Clock3 className="w-5 h-5 text-amber-500" />,
-          message: `대기자 ${event.waitlist}명`,
+          message: `대기자 ${waitlist}명`,
           canApply: true,
         };
       case "closed":
@@ -92,9 +123,9 @@ export function EventDetailDialog({
   const handleApply = () => {
     const amount = event.price;
     const bank = event.bankName;
-    const account = event.bankAccount;
+    const account = event.accountNumber;
     const holder = event.accountHolder;
-    const message = `[줌바 신청]\n\n행사: ${event.title}\n일시: ${event.date} ${event.time}\n\n입금 정보:\n은행: ${bank}\n계좌: ${account}\n예금주: ${holder}\n금액: ${amount.toLocaleString()}원\n\n입금 후 이름과 연락처를 문자로 보내주세요.`;
+    const message = `[줌바 신청]\n\n행사: ${event.title}\n일시: ${formatDate(event.date)} ${event.time}\n\n입금 정보:\n은행: ${bank}\n계좌: ${account}\n예금주: ${holder}\n금액: ${amount.toLocaleString()}원\n\n입금 후 이름과 연락처를 문자로 보내주세요.`;
     
     if (navigator.share) {
       navigator.share({
@@ -118,7 +149,7 @@ export function EventDetailDialog({
               </DialogTitle>
               <div className="flex items-center gap-2 mt-2">
                 <Badge variant="outline" className="border-border text-muted-foreground">
-                  {event.category}
+                  {getCategoryLabel(event.category)}
                 </Badge>
                 {statusInfo.badge}
               </div>
@@ -131,7 +162,7 @@ export function EventDetailDialog({
           <div
             className="relative h-56 rounded-lg bg-secondary overflow-hidden"
             style={{
-              backgroundImage: `url(${event.image})`,
+              backgroundImage: event.image ? `url(${event.image})` : undefined,
               backgroundSize: "cover",
               backgroundPosition: "center",
               backgroundColor: "oklch(0.25 0.05 340)",
@@ -164,14 +195,14 @@ export function EventDetailDialog({
               <Calendar className="w-5 h-5 text-primary" />
               <div>
                 <p className="text-xs text-muted-foreground">날짜</p>
-                <p className="font-medium text-foreground">{event.date}</p>
+                <p className="font-medium text-foreground">{formatDate(event.date)}</p>
               </div>
             </div>
             <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary">
               <Clock className="w-5 h-5 text-primary" />
               <div>
                 <p className="text-xs text-muted-foreground">시간</p>
-                <p className="font-medium text-foreground">{event.time}</p>
+                <p className="font-medium text-foreground">{event.time} ({event.duration})</p>
               </div>
             </div>
             <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary">
@@ -179,6 +210,7 @@ export function EventDetailDialog({
               <div>
                 <p className="text-xs text-muted-foreground">장소</p>
                 <p className="font-medium text-foreground">{event.location}</p>
+                <p className="text-xs text-muted-foreground">{event.address}</p>
               </div>
             </div>
             <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary">
@@ -204,14 +236,14 @@ export function EventDetailDialog({
                   <span className="text-foreground">신청 인원</span>
                 </div>
                 <span className="font-semibold text-foreground">
-                  {event.registered} / {event.capacity}명
+                  {registered} / {event.capacity}명
                 </span>
               </div>
               <Progress value={progressPercentage} className="h-3" />
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">대기 인원</span>
                 <span className="font-medium text-foreground">
-                  {event.waitlist}명
+                  {waitlist}명
                 </span>
               </div>
             </div>
@@ -239,7 +271,7 @@ export function EventDetailDialog({
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">계좌번호</span>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-foreground">{event.bankAccount}</span>
+                    <span className="font-mono text-foreground">{event.accountNumber}</span>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -271,7 +303,7 @@ export function EventDetailDialog({
               className="w-full h-12 text-lg font-semibold bg-primary hover:bg-primary/90 text-primary-foreground"
               onClick={handleApply}
             >
-              {event.status === "full" ? "대기 신청하기" : "신청하기"}
+              {status === "full" ? "대기 신청하기" : "신청하기"}
             </Button>
           )}
 

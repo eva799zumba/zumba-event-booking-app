@@ -6,30 +6,42 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EventCard } from "./event-card";
 import { EventDetailDialog } from "./event-detail-dialog";
-import { events, type ZumbaEvent } from "@/lib/data";
 import { Search } from "lucide-react";
+import type { Event } from "@/lib/db/schema";
 
-const categories = ["전체", "기초반", "시니어", "파티", "근력강화", "키즈", "아쿠아"];
+const categories = [
+  { value: "all", label: "전체" },
+  { value: "basic", label: "기초반" },
+  { value: "senior", label: "시니어" },
+  { value: "party", label: "파티" },
+  { value: "toning", label: "근력강화" },
+  { value: "kids", label: "키즈" },
+  { value: "aqua", label: "아쿠아" },
+];
 
-export function EventList() {
+interface EventListProps {
+  initialEvents: Event[];
+}
+
+export function EventList({ initialEvents }: EventListProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("전체");
-  const [selectedEvent, setSelectedEvent] = useState<ZumbaEvent | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const filteredEvents = events.filter((event) => {
+  const filteredEvents = initialEvents.filter((event) => {
     const matchesSearch =
       event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       event.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
       event.location.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesCategory =
-      selectedCategory === "전체" || event.category === selectedCategory;
+      selectedCategory === "all" || event.category === selectedCategory;
 
     return matchesSearch && matchesCategory;
   });
 
-  const handleEventClick = (event: ZumbaEvent) => {
+  const handleEventClick = (event: Event) => {
     setSelectedEvent(event);
     setDialogOpen(true);
   };
@@ -65,17 +77,17 @@ export function EventList() {
       <div className="flex flex-wrap gap-2 justify-center px-4">
         {categories.map((category) => (
           <Button
-            key={category}
-            variant={selectedCategory === category ? "default" : "outline"}
+            key={category.value}
+            variant={selectedCategory === category.value ? "default" : "outline"}
             size="sm"
-            onClick={() => setSelectedCategory(category)}
+            onClick={() => setSelectedCategory(category.value)}
             className={
-              selectedCategory === category
+              selectedCategory === category.value
                 ? "bg-primary text-primary-foreground"
                 : "border-border text-muted-foreground hover:text-foreground hover:bg-secondary"
             }
           >
-            {category}
+            {category.label}
           </Button>
         ))}
       </div>
@@ -103,10 +115,14 @@ export function EventList() {
       {filteredEvents.length === 0 && (
         <div className="text-center py-16">
           <p className="text-muted-foreground text-lg">
-            검색 결과가 없습니다.
+            {initialEvents.length === 0
+              ? "등록된 행사가 없습니다."
+              : "검색 결과가 없습니다."}
           </p>
           <p className="text-muted-foreground text-sm mt-2">
-            다른 검색어나 카테고리를 선택해보세요.
+            {initialEvents.length === 0
+              ? "곧 새로운 행사가 등록될 예정입니다."
+              : "다른 검색어나 카테고리를 선택해보세요."}
           </p>
         </div>
       )}
